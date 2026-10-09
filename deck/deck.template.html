@@ -57,19 +57,20 @@ ul.clean li::before { content: ""; position: absolute; left: 0; top: 14px; width
 ul.clean.x li::before { background: var(--graphite); border-radius: 0; height: 3px; top: 18px; }
 
 /* Chat transcripts */
-.chat { display: flex; flex-direction: column; gap: 18px; }
-.msg { max-width: 640px; padding: 18px 24px; border-radius: 22px; font-size: 25px; line-height: 1.35; letter-spacing: -0.015em; }
+.chat { display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: 640px; padding: 15px 22px; border-radius: 22px; font-size: 25px; line-height: 1.35; letter-spacing: -0.015em; }
 .msg.user { align-self: flex-end; background: #1c1d20; color: var(--white); border-bottom-right-radius: 6px; }
 .msg.ai { align-self: flex-start; background: transparent; border: 1px solid var(--line); color: var(--space); border-bottom-left-radius: 6px; }
-.stamp { font-size: 16px; color: var(--graphite); letter-spacing: .06em; text-transform: uppercase; align-self: flex-end; margin-bottom: -10px; }
-.store { border: 1.5px solid var(--orange); border-radius: 18px; padding: 26px 28px; background: #0a0503; }
+.stamp { font-size: 16px; color: var(--graphite); letter-spacing: .06em; text-transform: uppercase; align-self: flex-end; margin-bottom: -8px; }
+.store { border: 1.5px solid var(--orange); border-radius: 18px; padding: 20px 26px; background: #0a0503; }
 .store .lbl { font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
 .fact { font-family: var(--mono); font-size: 22px; color: var(--white); padding: 12px 16px; border-radius: 10px; background: #160a05; margin-top: 10px; }
+.fact.plain { font-family: Geist, sans-serif; font-size: 25px; letter-spacing: -0.01em; }
 .fact .k { color: var(--space); }
 .fact .r { color: var(--orange); }
 .tag { font-family: Geist, sans-serif; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--black); background: var(--orange); border-radius: 6px; padding: 3px 8px; margin-left: 10px; vertical-align: 3px; }
-.flow { display: flex; align-items: center; gap: 18px; margin: 22px 0 22px calc(50% - 2px); color: var(--space); font-size: 20px; }
-.flow .stem { width: 3px; height: 56px; background: var(--orange); position: relative; }
+.flow { display: flex; align-items: center; gap: 18px; margin: 12px 0 12px calc(50% - 2px); color: var(--space); font-size: 20px; }
+.flow .stem { width: 3px; height: 44px; background: var(--orange); position: relative; }
 .flow .stem::after { content: ""; position: absolute; left: -9px; bottom: -4px; border: 10px solid transparent; border-top: 12px solid var(--orange); border-bottom: 0; }
 .flow.dashed .stem { background: repeating-linear-gradient(var(--orange) 0 8px, transparent 8px 14px); }
 .tag.ghost { background: transparent; color: var(--orange); border: 1px solid var(--orange); }
@@ -138,26 +139,25 @@ img.shot { display: block; max-width: 100%; max-height: 600px; border-radius: 16
   <div class="lockup" role="img" aria-label="HydraDB"></div>
   <div class="kicker" style="margin-top:110px">Two kinds of memory</div>
   <h2>Some memories are <span class="o">told</span>. Others are <span class="dim">inferred.</span></h2>
-  <div class="row grow" style="margin-top:50px; gap:56px">
+  <div class="row grow" style="margin-top:36px; gap:56px">
     <!-- Explicit -->
     <div class="col card" style="display:flex; flex-direction:column">
       <div style="display:flex; align-items:baseline; gap:18px"><h3>Explicit memory</h3><span class="pill hot">stated → stored</span></div>
-      <p style="font-size:22px; margin:8px 0 26px">The user says a fact outright. Memory captures it as written.</p>
+      <p style="font-size:22px; margin:8px 0 18px">The user says a fact outright. Memory captures it as written.</p>
       <div class="chat">
         <div class="msg user">I currently work at HydraDB and build AI systems there.</div>
-        <div class="msg ai">Nice, noted. What are you building right now?</div>
-      </div>
+              </div>
       <div class="flow"><span class="stem"></span><span>extract facts</span></div>
       <div class="store">
         <div class="lbl">Memory store</div>
-        <div class="fact"><span class="k">user</span> <span class="r">—works_at→</span> HydraDB <span class="tag">stated</span></div>
-        <div class="fact"><span class="k">user</span> <span class="r">—builds→</span> AI systems <span class="tag">stated</span></div>
+        <div class="fact plain">Works at HydraDB. <span class="tag">stated</span></div>
+        <div class="fact plain">Builds AI systems. <span class="tag">stated</span></div>
       </div>
     </div>
     <!-- Implicit -->
     <div class="col card" style="display:flex; flex-direction:column">
       <div style="display:flex; align-items:baseline; gap:18px"><h3>Implicit memory</h3><span class="pill">observed → inferred</span></div>
-      <p style="font-size:22px; margin:8px 0 26px">No single message says it. The pattern across sessions does.</p>
+      <p style="font-size:22px; margin:8px 0 18px">No single message says it. The pattern across sessions does.</p>
       <div class="chat">
         <div class="stamp">Mon · 6:12 pm</div>
         <div class="msg user">What are some good places around for cakes?</div>
@@ -167,8 +167,8 @@ img.shot { display: block; max-width: 100%; max-height: 600px; border-radius: 16
       <div class="flow dashed"><span class="stem"></span><span>infer across sessions</span></div>
       <div class="store">
         <div class="lbl">Memory store</div>
-        <div class="fact"><span class="k">user</span> <span class="r">—has_preference→</span> sweet tooth <span class="tag ghost">inferred</span></div>
-        <div class="fact" style="color:var(--space); font-size:18px">evidence: “cakes” (Mon) · “Ghirardelli” (Sat)</div>
+        <div class="fact plain">Has a sweet tooth. <span class="tag ghost">inferred</span></div>
+        <div class="fact plain" style="color:var(--space); font-size:20px">Based on: cake places (Mon), Ghirardelli hours (Sat)</div>
       </div>
     </div>
   </div>
