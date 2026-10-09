@@ -100,6 +100,10 @@ def answer(q: AnswerQuery):
             raise HTTPException(503, f"Claude is not configured: {e}") from e
     try:
         out = state["answerer"].answer(q.question, result["chunks"])
+    except TypeError as e:
+        # The SDK raises TypeError at call time when no credential source resolves.
+        raise HTTPException(503, "Claude is not configured: set ANTHROPIC_API_KEY "
+                                 "(or log in with `ant auth login`)") from e
     except anthropic.AuthenticationError as e:
         raise HTTPException(503, f"Anthropic credentials rejected: {e.message}") from e
     except anthropic.RateLimitError as e:
