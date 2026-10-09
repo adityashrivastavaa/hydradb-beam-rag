@@ -65,6 +65,12 @@ curl -s localhost:8000/answer -H 'content-type: application/json' \
 | `GET /health` | | document count, reranker, device |
 | `GET /` | | web UI |
 
+**Verified on macOS (Apple Silicon, Python 3.12)** from a fresh clone, following
+the steps above exactly: the HydraDB build took about 2.5 minutes (Rust
+dependencies already in the local cargo cache; a first-ever Rust build takes
+longer), `setup_python.sh` about 2 minutes, and the loader about 2 minutes.
+`python -m eval.recall` then gave Recall@30 0.356, matching the table below.
+
 Evaluate recall against the gold evidence: `python -m eval.recall` (`--hops 1`, `--k 30`).
 
 ## Configuration
