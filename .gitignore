@@ -1,0 +1,6 @@
+.venv/
+.hydradb/
+__pycache__/
+*.pyc
+data/beam_c01/idmap.json
+.hydradb-node.log
