@@ -37,9 +37,16 @@ scripts/setup_python.sh && source .venv/bin/activate
 # 4. Load the conversation graph (~2 min; writes data/beam_c01/idmap.json)
 python -m app.loader
 
-# 5. Serve
+# 5. Serve (API and web UI)
 uvicorn app.server:app --port 8000
 ```
+
+Open <http://localhost:8000/> for the web UI: ask a question (or pick one of the
+20 BEAM questions), choose 1 or 2 hops, and see the matched seed entities, a
+graph of the seeds and their 1-hop neighbours, per-stage timings, and the
+reranked documents. Each document expands to its full turn text. **Answer with
+Claude** answers over exactly those documents, and its `[n]` citations jump to
+the cited document.
 
 ```bash
 curl -s localhost:8000/retrieve -H 'content-type: application/json' \
@@ -53,8 +60,10 @@ curl -s localhost:8000/answer -H 'content-type: application/json' \
 | Endpoint | Body | Returns |
 |---|---|---|
 | `POST /retrieve` | `question`, `k` (default 30), `hops` (1 or 2) | ranked `chunks` (doc id, rerank score, graph score, hop, text), matched seeds, pool size, per-stage timings |
-| `POST /answer` | same | Claude's answer (`claude-opus-5-5`, single call over the top-k) plus the retrieval metadata |
+| `POST /answer` | same, plus optional `doc_ids` (answer over these documents, skipping retrieval) | Claude's answer (`claude-opus-5-5`, single call over the top-k) plus the retrieval metadata |
+| `GET /questions` | | the 20 BEAM questions for this conversation |
 | `GET /health` | | document count, reranker, device |
+| `GET /` | | web UI |
 
 Evaluate recall against the gold evidence: `python -m eval.recall` (`--hops 1`, `--k 30`).
 

@@ -37,5 +37,6 @@ class Pipeline:
                            "rerank": round((t2 - t1) * 1e3, 1),
                            "total": round((t2 - t0) * 1e3, 1)},
             "graph_requests": g.requests,
+            "graph": self.graph.subgraph(g),
             "reranker": self.reranker.model_name,
         }

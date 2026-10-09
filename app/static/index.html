@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HydraDB BEAM RAG</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1c1c1a; --muted: #6b6b66; --line: #e4e3df;
+    --accent: #c2410c; --accent-soft: #fde7da; --seed: #c2410c; --node: #57534e; --hub: #a16207;
+    --edge: #d6d3d1; --good: #15803d; --bar: #e7e5e4; --code: #f2f1ee; --shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1b1b19; --ink: #ecebe7; --muted: #a29f97; --line: #2c2b28;
+      --accent: #fb923c; --accent-soft: #3a2316; --seed: #fb923c; --node: #a8a29e; --hub: #facc15;
+      --edge: #3a3936; --good: #4ade80; --bar: #2c2b28; --code: #22211f; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1b1b19; --ink: #ecebe7; --muted: #a29f97; --line: #2c2b28;
+    --accent: #fb923c; --accent-soft: #3a2316; --seed: #fb923c; --node: #a8a29e; --hub: #facc15;
+    --edge: #3a3936; --good: #4ade80; --bar: #2c2b28; --code: #22211f; --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 24px;
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .status { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .dot.ok { background: var(--good); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 20px;
+         padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 960px) { main { grid-template-columns: minmax(0, 1fr); padding: 16px; } header { padding: 12px 16px; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; box-shadow: var(--shadow); }
+  .panel + .panel { margin-top: 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  textarea { width: 100%; min-height: 72px; resize: vertical; font: inherit; color: var(--ink);
+             background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  textarea:focus, select:focus, input:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: transparent; color: var(--muted); padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  label.k { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+  label.k input { width: 56px; font: inherit; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+  .btn { border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 7px 16px; border-radius: 8px;
+         font: inherit; font-weight: 600; cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .btn:disabled { opacity: .5; cursor: progress; }
+  .examples { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+  .examples select { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px;
+                     border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .muted { color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--bar); color: var(--ink); }
+  .chip.seed { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 12px; }
+  .stat .v { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+  .timebar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--bar); margin-top: 12px; }
+  .timebar span { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .chunk { border: 1px solid var(--line); border-radius: 8px; margin-top: 10px; background: var(--panel); }
+  .chunk.flash { outline: 2px solid var(--accent); }
+  .chunk summary { list-style: none; cursor: pointer; padding: 10px 12px; display: grid;
+                   grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+  .chunk summary::-webkit-details-marker { display: none; }
+  .rank { font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .preview { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 14px; }
+  .meta { text-align: right; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .score { width: 70px; height: 5px; background: var(--bar); border-radius: 3px; margin: 4px 0 0 auto; }
+  .score span { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .body { padding: 4px 12px 12px 56px; font-size: 14px; }
+  .turn { white-space: pre-wrap; word-wrap: break-word; background: var(--code); border-radius: 6px; padding: 8px 10px; margin-top: 8px; }
+  .turn b { color: var(--accent); }
+  .docid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); }
+  #graph { width: 100%; height: 380px; display: block; }
+  #graph .edge { stroke: var(--edge); stroke-width: 1; }
+  #graph .node circle { fill: var(--node); stroke: var(--panel); stroke-width: 1.5; }
+  #graph .node.seed circle { fill: var(--seed); }
+  #graph .node.hub circle { fill: var(--hub); }
+  #graph .node text { font-size: 10px; fill: var(--muted); pointer-events: none; }
+  #graph .node.seed text { fill: var(--ink); font-weight: 600; font-size: 11px; }
+  #graph .node.dim { opacity: .2; } #graph .edge.dim { opacity: .15; }
+  .answer { white-space: pre-wrap; word-wrap: break-word; }
+  .answer a.cite { color: var(--accent); text-decoration: none; font-weight: 600; cursor: pointer; }
+  .error { color: #b91c1c; background: #fee2e2; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .error { color: #fecaca; background: #3f1d1d; } }
+  :root[data-theme="dark"] .error { color: #fecaca; background: #3f1d1d; }
+  .empty { color: var(--muted); font-size: 14px; padding: 24px 0; text-align: center; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent);
+             border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HydraDB BEAM RAG</h1>
+  <span class="sub">graph first pass → reranker → top-k</span>
+  <span class="status"><span class="dot" id="dot"></span><span id="status">connecting…</span></span>
+</header>
+
+<main>
+  <section>
+    <div class="panel">
+      <form id="form">
+        <textarea id="q" placeholder="Ask about BEAM conversation 1, e.g. Which port did I say my memory store was running on?" required></textarea>
+        <div class="controls">
+          <div class="seg" role="group" aria-label="Graph hops">
+            <button type="button" data-hops="1">1 hop</button>
+            <button type="button" data-hops="2" class="on">2 hops</button>
+          </div>
+          <label class="k">top k <input id="k" type="number" min="1" max="100" value="30"></label>
+          <button class="btn" id="go" type="submit">Retrieve</button>
+          <span id="busy" class="muted hidden"><span class="spinner"></span> <span id="elapsed">0.0</span>s</span>
+        </div>
+        <div class="examples">
+          <select id="examples" aria-label="BEAM example questions"><option value="">BEAM example questions…</option></select>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel hidden" id="answerPanel">
+      <h2>Answer</h2>
+      <div id="answer"></div>
+    </div>
+
+    <div class="panel" id="resultsPanel">
+      <div id="results"><div class="empty">Ask a question to see the graph seeds, timings and the reranked documents.</div></div>
+    </div>
+  </section>
+
+  <aside>
+    <div class="panel">
+      <h2>Seeds &amp; 1-hop neighbourhood</h2>
+      <svg id="graph" role="img" aria-label="Seed entities and their neighbours"></svg>
+      <div class="legend">
+        <span><i style="background:var(--seed)"></i>seed entity</span>
+        <span><i style="background:var(--node)"></i>1-hop neighbour</span>
+        <span><i style="background:var(--hub)"></i>hub (not expanded)</span>
+      </div>
+      <div id="graphNote" class="muted" style="font-size:12px;margin-top:6px"></div>
+    </div>
+    <div class="panel">
+      <h2>Pipeline</h2>
+      <div id="pipeline" class="muted" style="font-size:13px">
+        spaCy extracts entity phrases → exact match on entity names in HydraDB → breadth-first expansion over
+        RELATES (hubs skipped) → documents linked through PRESENT_IN, ordered by graph score → cross-encoder
+        reranks → top k.
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let hops = 2, last = null, timer = null;
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : `HTTP ${r.status}`);
+  return data;
+}
+
+function busy(on) {
+  $("#go").disabled = on;
+  $("#busy").classList.toggle("hidden", !on);
+  clearInterval(timer);
+  if (on) { const t0 = performance.now(); timer = setInterval(() => $("#elapsed").textContent = ((performance.now() - t0) / 1000).toFixed(1), 100); }
+}
+
+document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
+  hops = +b.dataset.hops;
+  document.querySelectorAll(".seg button").forEach((x) => x.classList.toggle("on", x === b));
+}));
+
+$("#examples").addEventListener("change", (e) => { if (e.target.value) { $("#q").value = e.target.value; $("#q").focus(); } });
+$("#q").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("#form").requestSubmit(); });
+
+$("#form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = $("#q").value.trim();
+  if (!question) return;
+  busy(true);
+  $("#answerPanel").classList.add("hidden");
+  try {
+    last = await api("/retrieve", { question, k: +$("#k").value || 30, hops });
+    renderResults(last);
+    renderGraph(last.graph);
+  } catch (err) {
+    $("#results").innerHTML = `<div class="error">${esc(err.message)}</div>`;
+  } finally { busy(false); }
+});
+
+function renderTurns(text) {
+  return esc(text).split(/\n(?=User: )/).map((t) =>
+    `<div class="turn">${t.replace(/^User: /, "<b>User:</b> ").replace(/\nAssistant: /, "\n\n<b>Assistant:</b> ")}</div>`).join("");
+}
+
+function renderResults(r) {
+  const t = r.timings_ms;
+  const segs = [["spaCy", t.spacy, "#a8a29e"], ["seed lookup", t.seed_lookup, "#78716c"], ["expand", t.expand, "#f59e0b"],
+                ["chunks", t.chunks, "#eab308"], ["rerank", t.rerank, "var(--accent)"]].filter((s) => s[1] != null);
+  const total = segs.reduce((a, s) => a + s[1], 0) || 1;
+  const max = Math.max(...r.chunks.map((c) => c.rerank_score), 1e-9), min = Math.min(...r.chunks.map((c) => c.rerank_score), 0);
+  const noSeeds = !r.seeds.length;
+  $("#results").innerHTML = `
+    <h2>Graph pass</h2>
+    <div class="chips">${r.seeds.map((s) => `<span class="chip seed">${esc(s)}</span>`).join("") ||
+      `<span class="muted">No entity in the question matched the graph. Tried: ${esc(r.candidates_tried.join(", ")) || "nothing"}</span>`}</div>
+    <div class="stats">
+      <div class="stat"><div class="v">${r.pool_size}</div><div class="l">docs reranked</div></div>
+      <div class="stat"><div class="v">${r.chunks.length}</div><div class="l">returned</div></div>
+      <div class="stat"><div class="v">${Math.round(t.graph_total)}<small> ms</small></div><div class="l">graph pass</div></div>
+      <div class="stat"><div class="v">${(t.rerank / 1000).toFixed(1)}<small> s</small></div><div class="l">rerank</div></div>
+    </div>
+    <div class="timebar" title="time per stage">${segs.map((s) => `<span style="width:${(100 * s[1] / total).toFixed(2)}%;background:${s[2]}" title="${s[0]}: ${Math.round(s[1])} ms"></span>`).join("")}</div>
+    <div class="legend">${segs.map((s) => `<span><i style="background:${s[2]}"></i>${s[0]} ${Math.round(s[1])} ms</span>`).join("")}</div>
+    ${noSeeds ? "" : `
+    <div style="display:flex;align-items:center;gap:10px;margin-top:18px">
+      <h2 style="margin:0">Top ${r.chunks.length} documents</h2>
+      <span class="muted" style="font-size:12px">${esc(r.reranker)}</span>
+      <button class="btn ghost" id="ask" style="margin-left:auto">Answer with Claude</button>
+    </div>
+    ${r.chunks.map((c) => `
+      <details class="chunk" id="c${c.rank}">
+        <summary>
+          <span class="rank">#${c.rank}</span>
+          <span class="preview">${esc(c.text.replace(/^User: /, "").slice(0, 400))}</span>
+          <span class="meta">${c.rerank_score.toFixed(3)} · hop ${c.graph_hop}
+            <div class="score"><span style="width:${(100 * (c.rerank_score - min) / ((max - min) || 1)).toFixed(1)}%"></span></div></span>
+        </summary>
+        <div class="body"><div class="docid">${esc(c.doc_id)} · graph score ${c.graph_score}</div>${renderTurns(c.text)}</div>
+      </details>`).join("")}`}`;
+  const ask = $("#ask");
+  if (ask) ask.addEventListener("click", answer);
+}
+
+async function answer() {
+  const ask = $("#ask");
+  ask.disabled = true; ask.textContent = "Answering…";
+  $("#answerPanel").classList.remove("hidden");
+  $("#answer").innerHTML = `<span class="spinner"></span> <span class="muted">Claude is reading ${last.chunks.length} documents…</span>`;
+  try {
+    const out = await api("/answer", { question: last.question, k: last.chunks.length, doc_ids: last.chunks.map((c) => c.doc_id) });
+    if (out.refused) {
+      $("#answer").innerHTML = `<div class="error">The model declined to answer (${esc(out.refusal_category || "no category")}).</div>`;
+    } else {
+      $("#answer").innerHTML = `<div class="answer">${esc(out.answer).replace(/\[(\d+)\]/g, '<a class="cite" data-n="$1">[$1]</a>')}</div>
+        <div class="muted" style="font-size:12px;margin-top:8px">${esc(out.model)}${out.usage ? ` · ${out.usage.input_tokens.toLocaleString()} in / ${out.usage.output_tokens.toLocaleString()} out tokens` : ""}</div>`;
+      document.querySelectorAll("a.cite").forEach((a) => a.addEventListener("click", () => {
+        const el = $(`#c${a.dataset.n}`); if (!el) return;
+        el.open = true; el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200);
+      }));
+    }
+  } catch (err) {
+    $("#answer").innerHTML = `<div class="error">${esc(err.message)}</div>`;
+  } finally { ask.disabled = false; ask.textContent = "Answer with Claude"; }
+}
+
+// Small force-directed layout, computed up front and drawn once.
+function renderGraph(g) {
+  const svg = $("#graph"), W = svg.clientWidth || 400, H = svg.clientHeight || 380;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  if (!g || !g.nodes.length) { svg.innerHTML = ""; $("#graphNote").textContent = "No seeds matched."; return; }
+  // Fruchterman-Reingold: repulsion k²/d between all pairs, attraction d²/k along edges,
+  // a gentle pull to the centre, and a cooling step limit. Seeded RNG keeps layouts stable.
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const nodes = g.nodes.map((n) => ({ ...n, x: W / 2 + (rnd() - 0.5) * W * 0.5, y: H / 2 + (rnd() - 0.5) * H * 0.5 }));
+  const idx = new Map(nodes.map((n, i) => [n.id, i]));
+  const edges = g.edges.map(([a, b]) => [idx.get(a), idx.get(b)]).filter(([a, b]) => a != null && b != null);
+  const pad = 24, k = 0.75 * Math.sqrt(((W - 2 * pad) * (H - 2 * pad)) / nodes.length), ITER = 400;
+  for (let it = 0; it < ITER; it++) {
+    const temp = (W / 10) * (1 - it / ITER) + 0.5;
+    const disp = nodes.map(() => [0, 0]);
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y, d = Math.hypot(dx, dy) || 0.01, f = (k * k) / d;
+      disp[i][0] += dx / d * f; disp[i][1] += dy / d * f; disp[j][0] -= dx / d * f; disp[j][1] -= dy / d * f;
+    }
+    for (const [i, j] of edges) {
+      const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y, d = Math.hypot(dx, dy) || 0.01, f = (d * d) / k;
+      disp[i][0] -= dx / d * f; disp[i][1] -= dy / d * f; disp[j][0] += dx / d * f; disp[j][1] += dy / d * f;
+    }
+    nodes.forEach((n, i) => {
+      disp[i][0] += (W / 2 - n.x) * 0.6; disp[i][1] += (H / 2 - n.y) * 0.6;
+      const d = Math.hypot(disp[i][0], disp[i][1]) || 0.01, step = Math.min(d, temp);
+      n.x = Math.max(pad, Math.min(W - pad, n.x + disp[i][0] / d * step));
+      n.y = Math.max(pad, Math.min(H - pad, n.y + disp[i][1] / d * step));
+    });
+  }
+  const nbr = nodes.map(() => new Set());
+  edges.forEach(([a, b]) => { nbr[a].add(b); nbr[b].add(a); });
+  svg.innerHTML = edges.map(([a, b], k) => `<line class="edge" data-a="${a}" data-b="${b}" x1="${nodes[a].x}" y1="${nodes[a].y}" x2="${nodes[b].x}" y2="${nodes[b].y}"/>`).join("") +
+    nodes.map((n, i) => `<g class="node${n.seed ? " seed" : ""}${n.hub ? " hub" : ""}" data-i="${i}" transform="translate(${n.x},${n.y})">
+      <circle r="${n.seed ? 7 : 4.5}"/><title>${esc(n.name)} (${esc(n.type)})${n.hub ? " · hub" : ""}</title>
+      ${n.seed || nbr[i].size > 1 ? `<text x="${n.x > W - 90 ? -8 : 8}" y="3" text-anchor="${n.x > W - 90 ? "end" : "start"}">${esc(n.name.length > 22 ? n.name.slice(0, 21) + "…" : n.name)}</text>` : ""}</g>`).join("");
+  svg.querySelectorAll(".node").forEach((el) => {
+    const i = +el.dataset.i;
+    el.addEventListener("mouseenter", () => {
+      svg.querySelectorAll(".node").forEach((o) => o.classList.toggle("dim", +o.dataset.i !== i && !nbr[i].has(+o.dataset.i)));
+      svg.querySelectorAll(".edge").forEach((e) => e.classList.toggle("dim", +e.dataset.a !== i && +e.dataset.b !== i));
+    });
+    el.addEventListener("mouseleave", () => svg.querySelectorAll(".dim").forEach((o) => o.classList.remove("dim")));
+  });
+  const shown = nodes.filter((n) => !n.seed).length;
+  $("#graphNote").textContent = `${nodes.filter((n) => n.seed).length} seeds · showing ${shown} of ${g.hop1_total} 1-hop neighbours (best connected)`;
+}
+
+(async () => {
+  try {
+    const h = await api("/health");
+    $("#dot").classList.add("ok");
+    $("#status").textContent = `${h.documents} docs · ${h.reranker.split("/").pop()} · ${h.device}`;
+  } catch { $("#status").textContent = "API unreachable"; }
+  try {
+    const qs = await api("/questions");
+    $("#examples").innerHTML += qs.map((q) => `<option value="${esc(q.question)}">[${esc(q.category)}] ${esc(q.question)}</option>`).join("");
+  } catch {}
+})();
+</script>
+</body>
+</html>

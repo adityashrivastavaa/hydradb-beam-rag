@@ -48,6 +48,7 @@ class GraphResult:
     doc_min_hop: dict[str, int] = field(default_factory=dict)
     timings_ms: dict[str, float] = field(default_factory=dict)
     requests: int = 0
+    hop1_edges: set[tuple[int, int]] = field(default_factory=set)  # (seed, neighbour), for display
 
     def pool(self, hops: int, cap: int | None = None) -> list[str]:
         """Documents within `hops`, best graph score first, optionally capped."""
@@ -63,6 +64,8 @@ class GraphRetriever:
         self.pool = ThreadPoolExecutor(workers)
         idmap = json.loads((DATA_DIR / "idmap.json").read_text())
         self.chunk_of = {v: k for k, v in idmap["chunks"].items()}
+        ents = {e["id"]: e for e in json.loads((DATA_DIR / "graph.json").read_text())["entities"]}
+        self.entity = {v: ents[k] for k, v in idmap["entities"].items()}  # vertex -> {name, type}
         # Degree table, computed once (production caches entity degrees too).
         deg: dict[int, int] = defaultdict(int)
         for cy in (DEG_OUT, DEG_IN):
@@ -129,6 +132,8 @@ class GraphRetriever:
             nxt = set()
             for v in frontier:
                 nxt |= nb.get(v, set()) - res.hop_of.keys()
+                if hop == 1:
+                    res.hop1_edges |= {(v, n) for n in nb.get(v, set()) if n != v}
             for v in nxt:
                 res.hop_of[v] = hop
             frontier = nxt - self.hubs
@@ -144,6 +149,19 @@ class GraphRetriever:
                 res.doc_min_hop[doc] = min(res.doc_min_hop.get(doc, 9), res.hop_of[e])
         res.timings_ms["chunks"] = (time.perf_counter() - t0) * 1e3
         return res
+
+    def subgraph(self, res: GraphResult, max_neighbours: int = 50) -> dict:
+        """Seeds plus their best-connected 1-hop neighbours, for the UI's graph view."""
+        links: dict[int, int] = defaultdict(int)
+        for _, n in res.hop1_edges:
+            if n not in res.seeds:
+                links[n] += 1
+        keep = set(res.seeds) | set(sorted(links, key=lambda n: (-links[n], n))[:max_neighbours])
+        node = lambda v: {"id": v, "name": self.entity[v]["name"], "type": self.entity[v]["type"],
+                          "seed": v in res.seeds, "hub": v in self.hubs, "hop": res.hop_of.get(v, 1)}
+        return {"nodes": [node(v) for v in sorted(keep)],
+                "edges": sorted({tuple(sorted(e)) for e in res.hop1_edges if e[0] in keep and e[1] in keep}),
+                "hop1_total": len({n for _, n in res.hop1_edges})}
 
     def candidate_docs(self, res: GraphResult, hops: int) -> list[str]:
         """Pool handed to the reranker: every 1-hop doc, or the top HOP2_CAP at 2 hops."""

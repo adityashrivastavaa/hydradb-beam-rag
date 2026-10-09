@@ -4,16 +4,21 @@
 
   POST /retrieve  {"question": "...", "k": 30, "hops": 2}  -> top-k chunks (+ timings)
   POST /answer    {"question": "...", "k": 30, "hops": 2}  -> Claude's answer over those chunks
+  GET  /questions  -> the BEAM questions for this conversation
   GET  /health
+  GET  /         -> web UI (app/static/index.html)
 """
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from .config import DEFAULT_HOPS, TOP_K
+from .config import DATA_DIR, DEFAULT_HOPS, TOP_K
 from .pipeline import Pipeline
 
 state: dict = {}
@@ -34,6 +39,28 @@ class Query(BaseModel):
     hops: int = Field(DEFAULT_HOPS, ge=1, le=2)
 
 
+INDEX = Path(__file__).parent / "static" / "index.html"
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(INDEX)
+
+
+@app.get("/questions")
+def questions():
+    """The BEAM probing questions for this conversation, as examples for the UI."""
+    qs = json.loads((DATA_DIR / "questions.json").read_text())
+    return [{"category": q["category"], "question": q["question"], "has_gold": bool(q["gold_doc_ids"])}
+            for q in qs]
+
+
+class AnswerQuery(Query):
+    # Pass the doc ids from an earlier /retrieve (in rank order) to answer over exactly
+    # those, without repeating retrieval.
+    doc_ids: list[str] | None = None
+
+
 @app.get("/health")
 def health():
     p: Pipeline = state["pipeline"]
@@ -49,7 +76,7 @@ def retrieve(q: Query):
 
 
 @app.post("/answer")
-def answer(q: Query):
+def answer(q: AnswerQuery):
     try:  # imported lazily: /retrieve works without the anthropic package or credentials
         import anthropic
 
@@ -57,7 +84,15 @@ def answer(q: Query):
     except ImportError as e:
         raise HTTPException(503, "/answer needs the anthropic package: pip install anthropic") from e
 
-    result = state["pipeline"].retrieve(q.question, q.k, q.hops)
+    p: Pipeline = state["pipeline"]
+    if q.doc_ids:
+        unknown = [d for d in q.doc_ids if d not in p.docs]
+        if unknown:
+            raise HTTPException(400, f"unknown doc_ids: {unknown[:5]}")
+        result = {"question": q.question, "chunks": [{"rank": i, "doc_id": d, "text": p.docs[d]}
+                                                     for i, d in enumerate(q.doc_ids[:q.k], 1)]}
+    else:
+        result = p.retrieve(q.question, q.k, q.hops)
     if "answerer" not in state:
         try:
             state["answerer"] = Answerer()
