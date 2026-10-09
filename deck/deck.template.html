@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory for AI Agents · HydraDB</title>
+<style>
+@font-face { font-family: Geist; src: url(data:font/woff2;base64,{{GEIST_400}}) format("woff2"); font-weight: 400; }
+@font-face { font-family: Geist; src: url(data:font/woff2;base64,{{GEIST_500}}) format("woff2"); font-weight: 500; }
+:root {
+  /* HydraDB brand: primary palette + grayscale (Complete Brand Guidelines, pp. 18-19) */
+  --orange: #FF5719; --black: #000000; --white: #FFFFFF;
+  --graphite: #6E7180; --space: #9DA2B3; --steel: #BCBFCC; --smoke: #D3D6E0; --cloud: #EDEFF7;
+  --ink-2: #c9cbd4; --line: #26272b; --panel: #0d0d0e; --orange-dim: #3a1608; --orange-mid: #8a2f0d;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--black); color: var(--white); overflow: hidden;
+             font-family: Geist, -apple-system, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+#stage { position: fixed; inset: 0; overflow: hidden; }
+#deck { width: 1920px; height: 1080px; position: absolute; left: 50%; top: 50%; transform-origin: center center; }
+.slide { position: absolute; inset: 0; padding: 96px 120px 88px; display: none; flex-direction: column; background: var(--black); overflow: hidden; }
+.slide.active { display: flex; }
+
+/* Brand furniture */
+.lockup { position: absolute; top: 56px; left: 120px; height: 34px; width: 186px; background: url({{LOCKUP}}) left center / contain no-repeat; }
+.pager { position: absolute; bottom: 44px; right: 120px; font-size: 20px; color: var(--graphite); letter-spacing: .02em; }
+.foot { position: absolute; bottom: 44px; left: 120px; font-size: 20px; color: var(--graphite); }
+.motif { position: absolute; right: 0; bottom: 0; width: 520px; height: 520px; pointer-events: none; }
+
+/* Type scale (brand pp. 22-23): H1 100 / H2 75 / H3 60 / H4 36 / body 24, -3% tracking on headlines */
+.kicker { font-size: 22px; font-weight: 500; color: var(--orange); letter-spacing: .14em; text-transform: uppercase; margin: 40px 0 22px; }
+h1 { font-size: 100px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.02; }
+h2 { font-size: 75px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.05; }
+h3 { font-size: 36px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.2; }
+h2 .dim, h1 .dim { color: var(--graphite); }
+p, li { font-size: 26px; line-height: 1.45; letter-spacing: -0.02em; color: var(--ink-2); }
+.lede { font-size: 30px; color: var(--steel); max-width: 1400px; margin-top: 22px; line-height: 1.4; }
+.small { font-size: 20px; color: var(--graphite); }
+.o { color: var(--orange); }
+.w { color: var(--white); }
+code, .mono { font-family: var(--mono); }
+.grow { flex: 1; min-height: 0; }
+
+/* Shared components */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 36px 40px; }
+.card.hot { border-color: var(--orange); }
+.pill { display: inline-block; font-size: 18px; letter-spacing: .08em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--graphite); color: var(--steel); }
+.pill.hot { border-color: var(--orange); color: var(--orange); }
+.row { display: flex; gap: 40px; }
+.col { flex: 1; min-width: 0; }
+.pros li::marker { color: var(--orange); }
+.cons li::marker { color: var(--graphite); }
+ul.clean { list-style: none; }
+ul.clean li { padding-left: 40px; position: relative; margin: 10px 0; }
+ul.clean li::before { content: ""; position: absolute; left: 0; top: 14px; width: 18px; height: 10px; background: var(--orange); border-radius: 0 4px 0 0; }
+ul.clean.x li::before { background: var(--graphite); border-radius: 0; height: 3px; top: 18px; }
+
+/* Chat transcripts */
+.chat { display: flex; flex-direction: column; gap: 18px; }
+.msg { max-width: 640px; padding: 18px 24px; border-radius: 22px; font-size: 25px; line-height: 1.35; letter-spacing: -0.015em; }
+.msg.user { align-self: flex-end; background: #1c1d20; color: var(--white); border-bottom-right-radius: 6px; }
+.msg.ai { align-self: flex-start; background: transparent; border: 1px solid var(--line); color: var(--space); border-bottom-left-radius: 6px; }
+.stamp { font-size: 16px; color: var(--graphite); letter-spacing: .06em; text-transform: uppercase; align-self: flex-end; margin-bottom: -10px; }
+.store { border: 1.5px solid var(--orange); border-radius: 18px; padding: 26px 28px; background: #0a0503; }
+.store .lbl { font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.fact { font-family: var(--mono); font-size: 22px; color: var(--white); padding: 12px 16px; border-radius: 10px; background: #160a05; margin-top: 10px; }
+.fact .k { color: var(--space); }
+.fact .r { color: var(--orange); }
+.tag { font-family: Geist, sans-serif; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--black); background: var(--orange); border-radius: 6px; padding: 3px 8px; margin-left: 10px; vertical-align: 3px; }
+.flow { display: flex; align-items: center; gap: 18px; margin: 22px 0 22px calc(50% - 2px); color: var(--space); font-size: 20px; }
+.flow .stem { width: 3px; height: 56px; background: var(--orange); position: relative; }
+.flow .stem::after { content: ""; position: absolute; left: -9px; bottom: -4px; border: 10px solid transparent; border-top: 12px solid var(--orange); border-bottom: 0; }
+.flow.dashed .stem { background: repeating-linear-gradient(var(--orange) 0 8px, transparent 8px 14px); }
+.tag.ghost { background: transparent; color: var(--orange); border: 1px solid var(--orange); }
+
+/* Steps (demo) */
+.steps { counter-reset: s; display: grid; grid-template-columns: 1fr 1fr; gap: 22px 44px; }
+.step { counter-increment: s; display: grid; grid-template-columns: 56px 1fr; gap: 18px; align-items: start; }
+.step::before { content: counter(s); width: 56px; height: 56px; border-radius: 12px; background: var(--orange); color: var(--black); font-weight: 500; font-size: 28px; display: grid; place-items: center; }
+.step.opt::before { content: "+"; background: transparent; border: 1.5px solid var(--orange); color: var(--orange); }
+.step h4 { font-size: 27px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 8px; }
+.cmd { font-family: var(--mono); font-size: 19px; color: var(--cloud); background: #111214; border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; white-space: pre; overflow: hidden; }
+.cmd .c { color: var(--graphite); }
+.q { display: grid; grid-template-columns: 90px 1fr; gap: 26px; align-items: start; padding: 30px 0; border-top: 1px solid var(--line); }
+.q:last-child { border-bottom: 1px solid var(--line); }
+.q .n { font-size: 60px; font-weight: 500; letter-spacing: -0.03em; color: var(--orange); line-height: 1; }
+.q .text { font-size: 38px; font-weight: 500; letter-spacing: -0.025em; color: var(--white); line-height: 1.2; }
+.q .look { font-size: 23px; color: var(--space); margin-top: 12px; }
+.seed { display: inline-block; font-size: 19px; color: var(--orange); border: 1px solid var(--orange); border-radius: 999px; padding: 2px 12px; margin: 0 6px 6px 0; }
+.types { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.type { border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; background: var(--panel); }
+.type b { display: block; font-size: 22px; font-weight: 500; color: var(--white); letter-spacing: -0.02em; margin-bottom: 6px; }
+.type span { font-size: 18px; color: var(--space); line-height: 1.35; display: block; }
+.card { display: flex; flex-direction: column; }
+.verdict { margin-top: auto; padding-top: 26px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.verdict p { font-size: 22px; }
+.link { font-family: var(--mono); font-size: 22px; color: var(--orange); }
+img.shot { display: block; max-width: 100%; max-height: 600px; border-radius: 16px; border: 1px solid var(--line); }
+
+/* Progress + hint */
+#progress { position: fixed; left: 0; bottom: 0; height: 3px; background: var(--orange); transition: width .25s ease; z-index: 5; }
+#hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 13px; color: var(--graphite); opacity: .8; z-index: 5; }
+@media print {
+  @page { size: 1920px 1080px; margin: 0; }
+  html, body { overflow: visible; height: auto; }
+  #stage { position: static; display: block; }
+  #deck { transform: none !important; height: auto; position: static; }
+  .slide { display: flex !important; position: relative; width: 1920px; height: 1080px; page-break-after: always; break-after: page; }
+  #progress, #hint { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="stage"><div id="deck">
+
+<!-- 1 · What is memory -->
+<section class="slide" data-title="What is memory?">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:150px">Memory for AI agents</div>
+  <h1 style="max-width:1500px">What is <span class="o">memory?</span></h1>
+  <blockquote style="margin-top:56px; max-width:1450px; border-left:4px solid var(--orange); padding-left:40px">
+    <p style="font-size:40px; line-height:1.35; color:var(--white); letter-spacing:-0.025em">“The ability to retain information or a representation of past experience, based on the mental processes of <span class="o">learning or encoding</span>, <span class="o">retention</span> across some interval of time, and <span class="o">retrieval</span> or reactivation of the memory.”</p>
+    <p class="small" style="margin-top:22px; font-size:22px">APA Dictionary of Psychology, “memory”</p>
+  </blockquote>
+  <div class="row" style="margin-top:auto; gap:0; align-items:center; max-width:1300px">
+    <div class="col"><h3>Encode</h3><p style="font-size:22px">turn an interaction into something storable</p></div>
+    <svg width="90" height="20" viewBox="0 0 90 20"><path d="M2 10h80m-10-8 10 8-10 8" fill="none" stroke="#FF5719" stroke-width="2.5"/></svg>
+    <div class="col" style="padding-left:30px"><h3>Store</h3><p style="font-size:22px">keep it across sessions, at scale</p></div>
+    <svg width="90" height="20" viewBox="0 0 90 20"><path d="M2 10h80m-10-8 10 8-10 8" fill="none" stroke="#FF5719" stroke-width="2.5"/></svg>
+    <div class="col" style="padding-left:30px"><h3>Retrieve</h3><p style="font-size:22px">bring back the right part, at the right time</p></div>
+  </div>
+  <svg class="motif" viewBox="0 0 440 426" aria-hidden="true" style="opacity:.28"><g fill="#FF5719"><rect x="328" y="286" width="112" height="140"/><path d="M440 161V0H328v102c0 8-6 14-14 14h-94v97h168c29 0 52-23 52-52"/></g></svg>
+</section>
+
+<!-- 2 · Explicit vs implicit -->
+<section class="slide" data-title="Two kinds of memory">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">Two kinds of memory</div>
+  <h2>Some memories are <span class="o">told</span>. Others are <span class="dim">inferred.</span></h2>
+  <div class="row grow" style="margin-top:50px; gap:56px">
+    <!-- Explicit -->
+    <div class="col card" style="display:flex; flex-direction:column">
+      <div style="display:flex; align-items:baseline; gap:18px"><h3>Explicit memory</h3><span class="pill hot">stated → stored</span></div>
+      <p style="font-size:22px; margin:8px 0 26px">The user says a fact outright. Memory captures it as written.</p>
+      <div class="chat">
+        <div class="msg user">I currently work at HydraDB and build AI systems there.</div>
+        <div class="msg ai">Nice, noted. What are you building right now?</div>
+      </div>
+      <div class="flow"><span class="stem"></span><span>extract facts</span></div>
+      <div class="store">
+        <div class="lbl">Memory store</div>
+        <div class="fact"><span class="k">user</span> <span class="r">—works_at→</span> HydraDB <span class="tag">stated</span></div>
+        <div class="fact"><span class="k">user</span> <span class="r">—builds→</span> AI systems <span class="tag">stated</span></div>
+      </div>
+    </div>
+    <!-- Implicit -->
+    <div class="col card" style="display:flex; flex-direction:column">
+      <div style="display:flex; align-items:baseline; gap:18px"><h3>Implicit memory</h3><span class="pill">observed → inferred</span></div>
+      <p style="font-size:22px; margin:8px 0 26px">No single message says it. The pattern across sessions does.</p>
+      <div class="chat">
+        <div class="stamp">Mon · 6:12 pm</div>
+        <div class="msg user">What are some good places around for cakes?</div>
+        <div class="stamp">Sat · 9:40 am</div>
+        <div class="msg user">When does Ghirardelli open on the weekend?</div>
+      </div>
+      <div class="flow dashed"><span class="stem"></span><span>infer across sessions</span></div>
+      <div class="store">
+        <div class="lbl">Memory store</div>
+        <div class="fact"><span class="k">user</span> <span class="r">—has_preference→</span> sweet tooth <span class="tag ghost">inferred</span></div>
+        <div class="fact" style="color:var(--space); font-size:18px">evidence: “cakes” (Mon) · “Ghirardelli” (Sat)</div>
+      </div>
+    </div>
+  </div>
+  <div class="pager">02</div>
+</section>
+
+<!-- 3 · Ways to store -->
+<section class="slide" data-title="Ways to store and retrieve memory">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">Storing and retrieving memory</div>
+  <h2>Three ways to give an agent memory</h2>
+  <div class="row grow" style="margin-top:70px; gap:36px; align-items:stretch">
+    <div class="col card"><div class="n" style="font-size:90px; font-weight:500; color:var(--graphite); letter-spacing:-.03em; line-height:1">01</div><h3 style="margin-top:30px">A memory file</h3><p style="margin-top:14px">Append facts to <code>MEMORY.md</code>, load the whole file into every prompt.</p><div class="verdict"><p><span class="w">Best for</span> a handful of preferences</p><p><span class="w">Breaks</span> when the file outgrows the context window</p></div></div>
+    <div class="col card"><div class="n" style="font-size:90px; font-weight:500; color:var(--graphite); letter-spacing:-.03em; line-height:1">02</div><h3 style="margin-top:30px">Vector store + chunks</h3><p style="margin-top:14px">Chunk everything, embed it, fetch the chunks closest to the question.</p><div class="verdict"><p><span class="w">Best for</span> pinpoint factual lookups</p><p><span class="w">Breaks</span> on time, contradictions and big-picture questions</p></div></div>
+    <div class="col card hot"><div class="n" style="font-size:90px; font-weight:500; color:var(--orange); letter-spacing:-.03em; line-height:1">03</div><h3 style="margin-top:30px">A graph</h3><p style="margin-top:14px">Extract entities and relations, connect them over time, traverse to answer.</p><div class="verdict"><p><span class="w">Best for</span> evolving, connected memory</p><p><span class="o">Holds accuracy</span> as memory grows</p></div></div>
+  </div>
+  <div class="pager">03</div>
+</section>
+
+<!-- 4 · MEMORY.md -->
+<section class="slide" data-title="01 · MEMORY.md">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">01 · The memory file</div>
+  <h2><code style="font-size:68px">MEMORY.md</code> works, <span class="dim">until it doesn’t</span></h2>
+  <div class="grow" style="margin-top:44px">
+    <svg viewBox="0 0 1680 560" width="100%" height="100%" role="img" aria-label="A memory file growing past the context window">
+      <defs>
+        <pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="12" fill="#FF5719" opacity=".55"/></pattern>
+      </defs>
+      <g font-family="Geist" fill="#BCBFCC">
+        <!-- column headers -->
+        <text x="0" y="30" font-size="22" fill="#6E7180" letter-spacing="2">MEMORY.md</text>
+        <text x="330" y="30" font-size="22" fill="#6E7180" letter-spacing="2">WHAT THE MODEL SEES ON EVERY TURN</text>
+        <!-- rows -->
+        <g transform="translate(0,70)">
+          <rect x="0" y="0" width="64" height="80" rx="8" fill="none" stroke="#9DA2B3" stroke-width="2"/><path d="M14 22h36M14 36h36M14 50h24" stroke="#9DA2B3" stroke-width="2"/>
+          <text x="84" y="34" font-size="28" fill="#fff">Day 1</text><text x="84" y="66" font-size="22">40 lines</text>
+          <rect x="330" y="18" width="1150" height="46" rx="8" fill="none" stroke="#6E7180" stroke-width="2"/>
+          <rect x="332" y="20" width="70" height="42" rx="6" fill="#1c1d20"/><rect x="402" y="20" width="60" height="42" fill="#FF5719"/><rect x="462" y="20" width="60" height="42" fill="#3a1608"/>
+          <text x="1510" y="50" font-size="24" fill="#fff">fits easily</text>
+        </g>
+        <g transform="translate(0,230)">
+          <rect x="0" y="-10" width="76" height="100" rx="8" fill="none" stroke="#9DA2B3" stroke-width="2"/><path d="M14 12h48M14 26h48M14 40h48M14 54h48M14 68h30" stroke="#9DA2B3" stroke-width="2"/>
+          <text x="96" y="34" font-size="28" fill="#fff">Month 3</text><text x="96" y="66" font-size="22">4,000 lines</text>
+          <rect x="330" y="18" width="1150" height="46" rx="8" fill="none" stroke="#6E7180" stroke-width="2"/>
+          <rect x="332" y="20" width="70" height="42" rx="6" fill="#1c1d20"/><rect x="402" y="20" width="900" height="42" fill="#FF5719"/><rect x="1302" y="20" width="60" height="42" fill="#3a1608"/>
+          <text x="1510" y="38" font-size="24" fill="#fff">slow, costly,</text><text x="1510" y="66" font-size="24" fill="#fff">facts get lost</text>
+        </g>
+        <g transform="translate(0,390)">
+          <rect x="0" y="-22" width="90" height="124" rx="8" fill="none" stroke="#FF5719" stroke-width="2"/><path d="M14 0h62M14 14h62M14 28h62M14 42h62M14 56h62M14 70h62M14 84h40" stroke="#FF5719" stroke-width="2"/>
+          <text x="110" y="34" font-size="28" fill="#fff">Year 1</text><text x="110" y="66" font-size="22">50,000+ lines</text>
+          <rect x="332" y="20" width="1148" height="42" fill="#FF5719"/><rect x="1480" y="20" width="200" height="42" fill="url(#hatch)"/>
+          <rect x="330" y="18" width="1150" height="46" rx="8" fill="none" stroke="#fff" stroke-width="2.5"/>
+          <text x="1495" y="104" font-size="24" fill="#FF5719">exceeds the window</text>
+        </g>
+        <!-- legend -->
+        <g transform="translate(330,540)" font-size="20">
+          <rect width="22" height="16" fill="#1c1d20" y="-14"/><text x="32">system prompt</text>
+          <rect x="230" width="22" height="16" fill="#FF5719" y="-14"/><text x="262">the whole memory file</text>
+          <rect x="540" width="22" height="16" fill="#3a1608" y="-14"/><text x="572">the user’s question</text>
+          <rect x="820" width="40" height="16" fill="none" stroke="#6E7180" stroke-width="2" y="-14"/><text x="872">context window</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+  <div class="row" style="gap:60px; margin-top:12px">
+    <p><span class="w">Good:</span> zero infrastructure, perfectly transparent, great for a handful of preferences.</p>
+    <p><span class="w">Breaks at scale:</span> every turn pays for every memory; the context bloats, then the window overflows.</p>
+  </div>
+  <div class="pager">04</div>
+</section>
+
+<!-- 5 · Vector + chunking -->
+<section class="slide" data-title="02 · Vector store + chunking">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">02 · Vector store + chunking</div>
+  <h2>Chunk it, embed it, <span class="o">hope</span> it comes back</h2>
+  <div class="grow" style="margin-top:40px">
+    <svg viewBox="0 0 1680 470" width="100%" height="100%" role="img" aria-label="Chunking and vector retrieval pipeline">
+      <g font-family="Geist" fill="none" stroke="#FF5719" stroke-width="2.2">
+        <!-- ingest lane -->
+        <text x="0" y="24" fill="#6E7180" stroke="none" font-size="20" letter-spacing="2">INGEST</text>
+        <rect x="0" y="50" width="190" height="120" rx="12"/><text x="95" y="102" fill="#fff" stroke="none" font-size="24" text-anchor="middle">Chats,</text><text x="95" y="132" fill="#fff" stroke="none" font-size="24" text-anchor="middle">docs, notes</text>
+        <path d="M200 110h70m-12-10 12 10-12 10"/>
+        <g><rect x="290" y="50" width="200" height="34" rx="6"/><rect x="290" y="93" width="200" height="34" rx="6"/><rect x="290" y="136" width="200" height="34" rx="6"/></g>
+        <text x="390" y="200" fill="#9DA2B3" stroke="none" font-size="20" text-anchor="middle">chunks</text>
+        <path d="M500 110h70m-12-10 12 10-12 10"/>
+        <g fill="#FF5719" stroke="none" font-family="var(--mono)" font-size="18"><text x="590" y="72">[0.12, −0.80, …]</text><text x="590" y="115">[0.44, 0.07, …]</text><text x="590" y="158">[−0.31, 0.62, …]</text></g>
+        <text x="680" y="200" fill="#9DA2B3" stroke="none" font-size="20" text-anchor="middle">embeddings</text>
+        <path d="M790 110h70m-12-10 12 10-12 10"/>
+        <ellipse cx="960" cy="62" rx="80" ry="18"/><path d="M880 62v96c0 10 36 18 80 18s80-8 80-18V62"/><path d="M880 110c0 10 36 18 80 18s80-8 80-18" opacity=".6"/>
+        <text x="1060" y="118" fill="#9DA2B3" stroke="none" font-size="20">vector index</text>
+        <!-- query lane -->
+        <text x="0" y="300" fill="#6E7180" stroke="none" font-size="20" letter-spacing="2">QUERY</text>
+        <rect x="0" y="326" width="190" height="96" rx="48"/><text x="95" y="382" fill="#fff" stroke="none" font-size="24" text-anchor="middle">Question</text>
+        <path d="M200 374h370m-12-10 12 10-12 10"/>
+        <text x="590" y="380" fill="#FF5719" stroke="none" font-family="var(--mono)" font-size="18">[0.40, 0.05, …]</text>
+        <path d="M790 374h90" /><path d="M960 186v134" stroke-dasharray="6 6"/><path d="M880 374h200m-12-10 12 10-12 10"/>
+        <text x="975" y="300" fill="#9DA2B3" stroke="none" font-size="20">cosine similarity</text>
+        <rect x="1100" y="320" width="290" height="108" rx="12"/><text x="1245" y="366" fill="#fff" stroke="none" font-size="24" text-anchor="middle">top-k chunks</text><text x="1245" y="398" fill="#9DA2B3" stroke="none" font-size="19" text-anchor="middle">most similar ≠ most useful</text>
+        <path d="M1396 374h50m-12-10 12 10-12 10"/>
+        <rect x="1460" y="320" width="220" height="108" rx="12" stroke="#fff"/><text x="1570" y="382" fill="#fff" stroke="none" font-size="24" text-anchor="middle">LLM answer</text>
+      </g>
+    </svg>
+  </div>
+  <div class="row" style="gap:60px">
+    <div class="col"><h3 style="font-size:30px">Great at</h3><p style="margin-top:8px">Pinpoint questions whose answer sits verbatim in one chunk: <span class="w">“Which port is the memory store on?”</span></p></div>
+    <div class="col"><h3 style="font-size:30px">Struggles with</h3><p style="margin-top:8px">Anything that needs time, consistency or the big picture (next two slides).</p></div>
+  </div>
+  <div class="pager">05</div>
+</section>
+
+<!-- 6 · Crowding -->
+<section class="slide" data-title="Embeddings crowd at scale">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">02 · Why vectors get noisy at scale</div>
+  <h2>More memories, <span class="dim">less separation</span></h2>
+  <div class="row grow" style="margin-top:36px; gap:56px">
+    <div class="col" style="display:flex; flex-direction:column">
+      <div style="display:flex; justify-content:space-between; align-items:baseline"><h3 style="font-size:32px">A few hundred chunks</h3><span class="pill">clear winner</span></div>
+      <svg id="plotSparse" class="grow" viewBox="0 0 800 520" width="100%" style="margin-top:14px"></svg>
+    </div>
+    <div class="col" style="display:flex; flex-direction:column">
+      <div style="display:flex; justify-content:space-between; align-items:baseline"><h3 style="font-size:32px">Hundreds of thousands</h3><span class="pill hot">photo finish</span></div>
+      <svg id="plotDense" class="grow" viewBox="0 0 800 520" width="100%" style="margin-top:14px"></svg>
+    </div>
+  </div>
+  <p style="margin-top:18px; max-width:1680px">Real embeddings are <span class="w">anisotropic</span>: they bunch into a narrow cone. As the store grows, the top-k neighbours of a query end up a hair apart in cosine, so a slightly different phrasing returns a different set. <span class="small">(Illustrative 2-D projection; scores are the true cosines of the plotted points.)</span></p>
+  <div class="pager">06</div>
+</section>
+
+<!-- 7 · What similarity can't see -->
+<section class="slide" data-title="What similarity can't see">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">02 · Where vector memory breaks</div>
+  <h2>Similarity measures <span class="o">relevance</span>,<br>not <span class="dim">answerability</span></h2>
+  <div class="row grow" style="margin-top:56px; gap:28px; align-items:stretch">
+    <div class="col card"><h3 style="font-size:30px">Time</h3><p style="font-size:23px; margin-top:12px">“Deadline is June 25” and “deadline moved to July 2” look equally relevant. Nothing says which is current.</p><div class="verdict"><p class="small" style="letter-spacing:.1em; text-transform:uppercase; font-size:16px">What a graph adds</p><p>Edges carry timestamps, so the newest fact can win.</p></div></div>
+    <div class="col card"><h3 style="font-size:30px">Staleness</h3><p style="font-size:23px; margin-top:12px">Old facts are never retired, so they keep winning retrieval long after they stopped being true.</p><div class="verdict"><p class="small" style="letter-spacing:.1em; text-transform:uppercase; font-size:16px">What a graph adds</p><p>A superseded relation is marked as such, not just outranked.</p></div></div>
+    <div class="col card"><h3 style="font-size:30px">Contradictions</h3><p style="font-size:23px; margin-top:12px">“I’ve shipped it” vs “I’ve never built it”: both come back, with no notion that they conflict.</p><div class="verdict"><p class="small" style="letter-spacing:.1em; text-transform:uppercase; font-size:16px">What a graph adds</p><p>Both claims attach to the same entity, so they surface side by side.</p></div></div>
+    <div class="col card"><h3 style="font-size:30px">Big-picture questions</h3><p style="font-size:23px; margin-top:12px">“Summarise how my project evolved” needs hundreds of chunks, not the top 10. A deep-research agent can do it, at a steep cost per question.</p><div class="verdict"><p class="small" style="letter-spacing:.1em; text-transform:uppercase; font-size:16px">What a graph adds</p><p>Walk one neighbourhood instead of reading every chunk.</p></div></div>
+  </div>
+  <div class="pager">07</div>
+</section>
+
+<!-- 8 · Graph vs vector -->
+<section class="slide" data-title="03 · Graph memory">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">03 · Graph memory</div>
+  <h2>Store <span class="dim">chunks</span> vs. <span class="o">connect context</span></h2>
+  <div class="row grow" style="margin-top:34px; gap:48px; align-items:center">
+    <div style="flex:1.75; height:100%; display:grid; place-items:center"><img class="shot" src="{{VECTOR_VS_GRAPH}}" alt="Flat vector index stores chunks; HydraDB extracts entities and connects them into a graph"></div>
+    <div style="flex:1">
+      <ul class="clean">
+        <li>Every chunk still lands, and <span class="w">entities and relations</span> are extracted from it.</li>
+        <li>Facts link across sources and sessions: <span class="o">who</span> did <span class="o">what</span>, <span class="o">when</span>, and what it blocked.</li>
+        <li>Retrieval <span class="w">walks the neighbourhood</span> of what the question mentions, instead of ranking isolated chunks.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot">Image: hydradb.com</div>
+  <div class="pager">08</div>
+</section>
+
+<!-- 9 · Accuracy vs context -->
+<section class="slide" data-title="Accuracy holds as memory grows">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">03 · Graph memory at scale</div>
+  <h2>Accuracy that <span class="o">holds</span> as memory grows</h2>
+  <div class="row grow" style="margin-top:34px; gap:56px; align-items:center">
+    <div style="flex:1.2; height:100%; display:grid; place-items:center"><img class="shot" src="{{ACCURACY}}" alt="Accuracy vs context length: HydraDB stays flat, VectorDB and full context degrade"></div>
+    <div style="flex:1">
+      <p class="small" style="font-size:22px; letter-spacing:.12em; text-transform:uppercase">At 115K conversation tokens</p>
+      <div style="margin-top:22px; display:grid; gap:26px">
+        <div><div style="font-size:96px; font-weight:500; letter-spacing:-.03em; line-height:1; color:var(--orange)">90.79%</div><p>HydraDB: nearly flat from 8K to 115K tokens</p></div>
+        <div><div style="font-size:64px; font-weight:500; letter-spacing:-.03em; line-height:1">71%</div><p>Vector DB: degrades as the store crowds</p></div>
+        <div><div style="font-size:64px; font-weight:500; letter-spacing:-.03em; line-height:1; color:var(--space)">38%</div><p>Full context: the model drowns in its own history</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">Source: benchmarks.hydradb.com/hydradb</div>
+  <div class="pager">09</div>
+</section>
+
+<!-- 10 · Demo setup -->
+<section class="slide" data-title="Run the demo">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">Try it yourself</div>
+  <h2>Graph memory on your laptop, <span class="dim">in five steps</span></h2>
+  <svg viewBox="0 0 1680 90" width="100%" height="90" style="margin-top:30px" role="img" aria-label="Pipeline: question, spaCy entities, HydraDB two-hop graph, reranker, top 30 chunks, Claude">
+    <g font-family="Geist" font-size="21" text-anchor="middle">
+      <g fill="none" stroke="#FF5719" stroke-width="2"><rect x="0" y="16" width="210" height="58" rx="29"/><rect x="262" y="16" width="230" height="58" rx="12"/><rect x="544" y="16" width="300" height="58" rx="12" fill="#1a0a04"/><rect x="896" y="16" width="250" height="58" rx="12"/><rect x="1198" y="16" width="220" height="58" rx="12"/><rect x="1470" y="16" width="210" height="58" rx="12" stroke="#fff"/>
+        <path d="M214 45h40m-10-8 10 8-10 8M496 45h40m-10-8 10 8-10 8M848 45h40m-10-8 10 8-10 8M1150 45h40m-10-8 10 8-10 8M1422 45h40m-10-8 10 8-10 8"/></g>
+      <g fill="#fff"><text x="105" y="52">Question</text><text x="377" y="52">spaCy entities</text><text x="694" y="52" fill="#FF5719">HydraDB · 2 hops</text><text x="1021" y="52">Reranker</text><text x="1308" y="52">Top 30 chunks</text><text x="1575" y="52">Claude</text></g>
+    </g>
+  </svg>
+  <div class="steps grow" style="margin-top:40px">
+    <div class="step"><div><h4>Clone the repo</h4><div class="cmd">git clone https://github.com/adityashrivastavaa/hydradb-beam-rag
+cd hydradb-beam-rag</div></div></div>
+    <div class="step"><div><h4>Build HydraDB <span class="small">(pinned, open source)</span></h4><div class="cmd">brew install cmake pkg-config llvm suite-sparse \
+  cleishm/neo4j/libcypher-parser
+HYDRADB_DIR=~/src/hydradb scripts/install_hydradb.sh</div></div></div>
+    <div class="step"><div><h4>Start it <span class="small">(own terminal)</span></h4><div class="cmd">HYDRADB_DIR=~/src/hydradb scripts/start_hydradb.sh</div></div></div>
+    <div class="step"><div><h4>Python env + load the graph</h4><div class="cmd">scripts/setup_python.sh && source .venv/bin/activate
+python -m app.loader        <span class="c"># ~2 min, 9,227 relations</span></div></div></div>
+    <div class="step"><div><h4>Serve the app</h4><div class="cmd">uvicorn app.server:app --port 8000
+<span class="c"># open http://localhost:8000</span></div></div></div>
+    <div class="step opt"><div><h4>Optional: answers from Claude</h4><div class="cmd">export ANTHROPIC_API_KEY=…   <span class="c"># then “Answer with Claude”</span></div></div></div>
+  </div>
+  <div class="foot">macOS (Apple Silicon) · verified from a fresh clone</div>
+  <div class="pager">10</div>
+</section>
+
+<!-- 11 · Three questions -->
+<section class="slide" data-title="Ask these now">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">Ask these now</div>
+  <h2>Three questions to watch the graph work</h2>
+  <div style="margin-top:40px">
+    <div class="q"><div class="n">1</div><div><div class="text">Which port did I say my memory store was running on?</div><div class="look"><span class="seed">memory store</span> One clean seed and a small, readable cluster around it. The basic idea in one picture.</div></div></div>
+    <div class="q"><div class="n">2</div><div><div class="text">What retry mechanism with exponential backoff did I use for the OpenAI API calls?</div><div class="look"><span class="seed">retry mechanism</span><span class="seed">exponential backoff</span><span class="seed">openai api</span> Separate concepts bridged by shared neighbours; the top hits are all about GPT-4 rate-limit retries.</div></div></div>
+    <div class="q"><div class="n">3</div><div><div class="text">How did I design the PostgreSQL database schema for the contextual memory store?</div><div class="look"><span class="seed">postgresql database schema</span><span class="seed">contextual memory store</span> A dense neighbourhood; the top hits are PostgreSQL 14 JSONB designs for the store.</div></div></div>
+  </div>
+  <p class="small" style="margin-top:22px">Hover a seed to light up its neighbours. The yellow <span class="w">user</span> hub is shown but never expanded. Toggle 1 vs 2 hops and watch the pool change.</p>
+  <div class="pager">11</div>
+</section>
+
+<!-- 12 · Question bank -->
+<section class="slide" data-title="Keep exploring">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div class="kicker" style="margin-top:110px">Keep exploring</div>
+  <h2>The question bank: <span class="o">BEAM</span></h2>
+  <p class="lede">The demo graph is conversation 1 of BEAM-1M, a long-term-memory benchmark (ICLR 2026) whose probing questions test ten memory abilities:</p>
+  <div class="types" style="margin-top:36px">
+    <div class="type"><b>Information extraction</b><span>recall a specific fact</span></div>
+    <div class="type"><b>Multi-session reasoning</b><span>join evidence across sessions</span></div>
+    <div class="type"><b>Knowledge update</b><span>prefer the newest fact</span></div>
+    <div class="type"><b>Temporal reasoning</b><span>dates, gaps, deadlines</span></div>
+    <div class="type"><b>Event ordering</b><span>reconstruct what came first</span></div>
+    <div class="type"><b>Contradiction resolution</b><span>spot conflicting claims</span></div>
+    <div class="type"><b>Preference following</b><span>adapt to stated tastes</span></div>
+    <div class="type"><b>Instruction following</b><span>keep long-lived constraints</span></div>
+    <div class="type"><b>Summarization</b><span>compress the whole arc</span></div>
+    <div class="type"><b>Abstention</b><span>say “not in memory”</span></div>
+  </div>
+  <div class="row" style="margin-top:44px; gap:40px">
+    <div class="col card"><p class="small" style="letter-spacing:.1em; text-transform:uppercase">In the app</p><p style="margin-top:10px">The <span class="w">BEAM example questions</span> menu, or <code class="w">data/beam_c01/questions.json</code> (20 questions with reference answers)</p></div>
+    <div class="col card"><p class="small" style="letter-spacing:.1em; text-transform:uppercase">Full benchmark</p><p style="margin-top:10px" class="link">huggingface.co/datasets/Mohammadta/BEAM</p><p style="margin-top:6px" class="link">github.com/mohammadtavakoli78/BEAM</p></div>
+  </div>
+  <div class="pager">12</div>
+</section>
+
+<!-- 13 · Close -->
+<section class="slide" data-title="Thank you">
+  <div class="lockup" role="img" aria-label="HydraDB"></div>
+  <div style="margin:auto 0">
+    <h1 style="font-size:150px">Memory that<br><span class="o">connects.</span></h1>
+    <p class="lede" style="margin-top:40px">Demo repo <span class="link" style="font-size:30px">github.com/adityashrivastavaa/hydradb-beam-rag</span></p>
+    <p class="lede" style="margin-top:8px">HydraDB <span class="link" style="font-size:30px">hydradb.com</span> · open source <span class="link" style="font-size:30px">github.com/hydra-db/hydradb</span></p>
+  </div>
+  <svg class="motif" viewBox="0 0 440 426" aria-hidden="true" style="width:560px; height:560px; opacity:.85"><g fill="#FF5719"><rect x="0" width="112" height="147"/><rect x="328" y="286" width="112" height="140"/><path d="M220 310v-97H52c-29 0-52 23-52 52v161h112V324c0-8 6-14 14-14h94Z"/><path d="M440 161V0H328v102c0 8-6 14-14 14h-94v97h168c29 0 52-23 52-52"/></g></svg>
+</section>
+
+</div></div>
+<div id="progress"></div>
+<div id="hint">← → to navigate · F for full screen</div>
+
+<script>
+const slides = [...document.querySelectorAll(".slide")];
+const deck = document.getElementById("deck");
+let cur = 0;
+
+function fit() {
+  const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  deck.style.transform = `translate(-50%, -50%) scale(${s})`;
+}
+function show(i) {
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, k) => s.classList.toggle("active", k === cur));
+  document.getElementById("progress").style.width = `${(100 * (cur + 1)) / slides.length}%`;
+  history.replaceState(null, "", `#${cur + 1}`);
+  document.title = `${slides[cur].dataset.title} · HydraDB`;
+}
+addEventListener("resize", fit);
+addEventListener("keydown", (e) => {
+  if (["ArrowRight", "PageDown", " ", "Enter"].includes(e.key)) { e.preventDefault(); show(cur + 1); }
+  else if (["ArrowLeft", "PageUp", "Backspace"].includes(e.key)) { e.preventDefault(); show(cur - 1); }
+  else if (e.key === "Home") show(0);
+  else if (e.key === "End") show(slides.length - 1);
+  else if (e.key === "f" || e.key === "F") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+});
+addEventListener("click", (e) => { if (e.target.closest("a")) return; show(cur + (e.clientX > innerWidth / 3 ? 1 : -1)); });
+setTimeout(() => { const h = document.getElementById("hint"); if (h) h.style.opacity = 0; }, 4000);
+
+// --- Slide 6: sparse vs crowded embedding plots -----------------------------
+// Points are unit-ish vectors from the origin; similarity = true cosine to the query.
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function plot(svgId, angles, opts) {
+  const svg = document.getElementById(svgId), R = rng(opts.seed), NS = "http://www.w3.org/2000/svg";
+  const cx = 270, cy = 270, rad = 210, qAngle = opts.qAngle;
+  const pts = angles.map((a) => ({ a, r: 0.6 + R() * 0.4 }));
+  pts.forEach((p) => (p.s = Math.cos(p.a - qAngle)));  // true cosine between point and query directions
+  const top = [...pts].sort((x, y) => y.s - x.s).slice(0, 5);
+  const el = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text) e.textContent = text; svg.appendChild(e); return e; };
+  el("circle", { cx, cy, r: rad, fill: "none", stroke: "#26272b", "stroke-width": 1.5 });
+  el("line", { x1: cx - rad - 20, y1: cy, x2: cx + rad + 20, y2: cy, stroke: "#1c1d20" });
+  el("line", { x1: cx, y1: cy - rad - 20, x2: cx, y2: cy + rad + 20, stroke: "#1c1d20" });
+  const P = (a, r) => [cx + Math.cos(a) * rad * r, cy - Math.sin(a) * rad * r];
+  pts.forEach((p) => { const hot = top.includes(p); const [x, y] = P(p.a, p.r); el("circle", { cx: x, cy: y, r: hot ? opts.dot + 1.5 : opts.dot, fill: hot ? "#FF5719" : "#6E7180", opacity: hot ? 1 : opts.alpha }); });
+  const [qx, qy] = P(qAngle, 1.08);
+  el("line", { x1: cx, y1: cy, x2: qx, y2: qy, stroke: "#fff", "stroke-width": 2.5 });
+  el("polygon", { points: [...Array(10)].map((_, k) => { const rr = k % 2 ? 6 : 14, aa = -Math.PI / 2 + (k * Math.PI) / 5; return `${qx + rr * Math.cos(aa)},${qy + rr * Math.sin(aa)}`; }).join(" "), fill: "#fff" });
+  el("text", { x: qx + 18, y: qy - 10, fill: "#fff", "font-size": 20, "font-family": "Geist" }, "query");
+  const bx = 590, by = 120, lo = top[4].s - opts.pad, hi = 1;
+  el("text", { x: bx, y: by - 34, fill: "#6E7180", "font-size": 17, "font-family": "Geist", "letter-spacing": 2 }, "TOP-5 COSINE");
+  top.forEach((p, k) => {
+    const y = by + k * 62, w = Math.max(6, ((p.s - lo) / (hi - lo)) * 200);
+    el("rect", { x: bx, y, width: 200, height: 14, rx: 3, fill: "#1c1d20" });
+    el("rect", { x: bx, y, width: w, height: 14, rx: 3, fill: k === 0 ? "#FF5719" : "#8a2f0d" });
+    el("text", { x: bx, y: y + 42, fill: k === 0 ? "#fff" : "#9DA2B3", "font-size": 22, "font-family": "ui-monospace, Menlo, monospace" }, p.s.toFixed(4));
+  });
+  el("text", { x: bx, y: by + 5 * 62 + 24, fill: opts.gapColor, "font-size": 20, "font-family": "Geist" }, `#1 vs #2 margin: ${(top[0].s - top[1].s).toFixed(4)}`);
+}
+// Sparse: 12 memories spread around the space; the query sits close to one of them.
+const R1 = rng(11);
+plot("plotSparse", [...Array(12)].map((_, i) => (i * 2 * Math.PI) / 12 + (R1() - 0.5) * 0.25), { seed: 5, qAngle: 0.58, dot: 7, alpha: 0.9, pad: 0.05, gapColor: "#BCBFCC" });
+// Crowded: 1,800 memories packed into a narrow cone (anisotropy); the query sits just outside it.
+const R2 = rng(29);
+plot("plotDense", [...Array(1800)].map(() => 0.6 + R2() * 0.5 + (R2() - 0.5) * 0.12), { seed: 7, qAngle: 1.32, dot: 2.4, alpha: 0.55, pad: 0.0004, gapColor: "#FF5719" });
+
+show(Math.max(0, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+fit();
+</script>
+</body>
+</html>

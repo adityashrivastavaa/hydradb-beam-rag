@@ -73,6 +73,15 @@ longer), `setup_python.sh` about 2 minutes, and the loader about 2 minutes.
 
 Evaluate recall against the gold evidence: `python -m eval.recall` (`--hops 1`, `--k 30`).
 
+## Demo deck
+
+`deck/index.html` is the slide deck for this demo: what memory is, explicit vs
+implicit memory, memory files vs vector stores vs graphs, HydraDB's accuracy at
+scale, then the setup steps and the three demo questions. It is one offline file
+(fonts and images inlined); open it in a browser and use ← → to navigate, `F`
+for full screen, or print to PDF. To edit, change `deck/deck.template.html` and
+run `python deck/build.py`.
+
 ## Configuration
 
 | Variable | Default | |
