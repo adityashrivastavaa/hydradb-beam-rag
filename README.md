@@ -1,5 +1,7 @@
 # hydradb-beam-rag
 
+> **Slides:** [demo deck (HTML)](deck/index.html) · [PDF](deck/hydradb-memory-demo.pdf)
+
 Graph-first retrieval over one BEAM-1M conversation, running entirely on your
 machine:
 
@@ -75,12 +77,16 @@ Evaluate recall against the gold evidence: `python -m eval.recall` (`--hops 1`, 
 
 ## Demo deck
 
-`deck/index.html` is the slide deck for this demo: what memory is, explicit vs
+**[Open the deck (HTML)](deck/index.html)** · **[Download as PDF](deck/hydradb-memory-demo.pdf)**
+
+[`deck/index.html`](deck/index.html) is the slide deck for this demo: what memory is, explicit vs
 implicit memory, memory files vs vector stores vs graphs, HydraDB's accuracy at
 scale, then the setup steps and the three demo questions. It is one offline file
 (fonts and images inlined); open it in a browser and use ← → to navigate, `F`
-for full screen, or print to PDF. To edit, change `deck/deck.template.html` and
-run `python deck/build.py`.
+for full screen. GitHub shows HTML as source, so download it (or clone the repo)
+and open it locally; [`deck/hydradb-memory-demo.pdf`](deck/hydradb-memory-demo.pdf)
+is the same deck as a PDF. To edit, change `deck/deck.template.html` and run
+`python deck/build.py`.
 
 ## Configuration
 
