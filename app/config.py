@@ -7,8 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(os.getenv("BEAM_DATA_DIR", ROOT / "data" / "beam_c01"))
 
-# Identifiers the graph was dumped with (staging beam1m-stg, conversation c_01).
-TENANT = "u7m3cbzq3u"
+# Labels stored on every node (queries filter on SUB_TENANT only).
+TENANT = "beam1m"
 SUB_TENANT = "memories_c_01"
 
 # Retrieval defaults (see README "How the defaults were chosen").

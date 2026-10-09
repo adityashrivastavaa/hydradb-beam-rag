@@ -14,7 +14,9 @@ machine:
 
 The bundled data is BEAM-1M conversation 1 (`c_01`): 4,852 entities, 9,227
 relations, 2,283 chunks across 854 documents (one document = one conversation
-turn), plus the 20 BEAM probing questions with their gold evidence documents.
+turn), plus the 20 BEAM probing questions with their gold evidence documents. The data comes from
+the [BEAM benchmark](https://github.com/mohammadtavakoli78/BEAM) and is licensed
+CC BY-SA 4.0; see [data/beam_c01/LICENSE.md](data/beam_c01/LICENSE.md).
 
 > **Chunks vs documents.** The graph links entities to chunk ids
 > (`<doc>_chunk_NNNN`), but text is available per document, so retrieval

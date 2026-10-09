@@ -50,9 +50,12 @@ def retrieve(q: Query):
 
 @app.post("/answer")
 def answer(q: Query):
-    from .answer import Answerer  # imported lazily: /retrieve works without Anthropic credentials
+    try:  # imported lazily: /retrieve works without the anthropic package or credentials
+        import anthropic
 
-    import anthropic
+        from .answer import Answerer
+    except ImportError as e:
+        raise HTTPException(503, "/answer needs the anthropic package: pip install anthropic") from e
 
     result = state["pipeline"].retrieve(q.question, q.k, q.hops)
     if "answerer" not in state:
