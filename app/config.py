@@ -12,7 +12,7 @@ TENANT = "beam1m"
 SUB_TENANT = "memories_c_01"
 
 # Retrieval defaults (see README "How the defaults were chosen").
-RERANKER_MODEL = os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
+RERANKER_MODEL = os.getenv("RERANKER_MODEL", "Alibaba-NLP/gte-reranker-modernbert-base")
 RERANKER_MAX_LENGTH = int(os.getenv("RERANKER_MAX_LENGTH", "512"))
 DEFAULT_HOPS = int(os.getenv("GRAPH_HOPS", "2"))
 HOP2_CAP = int(os.getenv("HOP2_CAP", "150"))  # documents reranked at 2 hops

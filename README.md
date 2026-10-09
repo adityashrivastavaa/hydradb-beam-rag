@@ -62,7 +62,7 @@ Evaluate recall against the gold evidence: `python -m eval.recall` (`--hops 1`, 
 
 | Variable | Default | |
 |---|---|---|
-| `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | any sentence-transformers `CrossEncoder` |
+| `RERANKER_MODEL` | `Alibaba-NLP/gte-reranker-modernbert-base` | any sentence-transformers `CrossEncoder` |
 | `RERANKER_MAX_LENGTH` | `512` | tokens per (question, document) pair |
 | `GRAPH_HOPS` | `2` | default for requests that omit `hops` |
 | `HOP2_CAP` | `150` | documents reranked at 2 hops, best graph score first |
@@ -72,7 +72,34 @@ Evaluate recall against the gold evidence: `python -m eval.recall` (`--hops 1`, 
 
 ## How the defaults were chosen
 
-RESULTS_PLACEHOLDER
+Measured on the 19 `c_01` questions that have gold evidence documents (Apple
+Silicon, MPS, reranker input capped at 512 tokens). Recall = share of a
+question's gold documents found in the top k.
+
+| Reranker over the 2-hop pool (150 docs) | Recall@10 | Recall@30 | Hit@30 | Docs/s |
+|---|---|---|---|---|
+| **`Alibaba-NLP/gte-reranker-modernbert-base`** (default) | **0.29** | **0.36** | 0.63 | 19 |
+| `BAAI/bge-reranker-v2-m3` | 0.27 | 0.35 | **0.68** | 9 |
+| `cross-encoder/ettin-reranker-150m-v1` | 0.27 | 0.36 | 0.63 | 21 |
+| `tomaarsen/Qwen3-Reranker-0.6B-seq-cls` | 0.04 | 0.08 | 0.37 | 5 |
+| graph score alone, no reranker | 0.15 | 0.18 | 0.42 | – |
+
+- gte-modernbert ties for the best Recall@30, has the best Recall@10, and is
+  twice as fast as bge-reranker-v2-m3. The Qwen3 checkpoint scored near zero,
+  most likely because it expects a prompt template this pipeline doesn't apply;
+  it is not a fair read of that model.
+- **The graph caps what reranking can reach.** 1 hop holds 38% of the gold
+  documents (about 100 docs per question). The full 2-hop neighbourhood holds
+  65%, but it is about 530 docs; after the cap of 150 by graph score, 39%
+  survive. Raising `HOP2_CAP` trades latency for recall.
+- **Latency** is about 8 s per query, almost all of it reranking 150 documents
+  on the laptop GPU. The graph pass (spaCy, seed lookup, expansion, chunk
+  lookup) takes about 75 ms.
+- For reference, HydraDB's hosted retrieval returned 0.40 recall at k≈10 in
+  fast mode and 0.52 at k≈14 in thinking mode on the same questions; it also
+  uses dense and keyword search, which this pipeline deliberately does not.
+
+Reproduce with `python -m eval.recall` (switch models with `RERANKER_MODEL=...`).
 
 ## Notes on the graph database
 
