@@ -16,10 +16,35 @@ set -euo pipefail
 HYDRADB_DIR="${HYDRADB_DIR:-$HOME/src/hydradb}"
 # Open-source HydraDB repo; override HYDRADB_REPO to build from a fork.
 HYDRADB_REPO="${HYDRADB_REPO:-https://github.com/hydra-db/hydradb.git}"
+# The commit this app was tested against. Set HYDRADB_REF=main (or any ref) to try a newer one.
+HYDRADB_REF="${HYDRADB_REF:-4a8fff08365358d5d36c0e12d205437966dd9597}"
+
+missing=()
+for tool in git cmake pkg-config clang; do
+  command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+done
+command -v cargo >/dev/null 2>&1 || command -v rustup >/dev/null 2>&1 || missing+=("rust (rustup)")
+pkg-config --exists cypher-parser 2>/dev/null || missing+=("libcypher-parser")
+if command -v brew >/dev/null 2>&1; then
+  [ -f "$(brew --prefix)/lib/libgraphblas.dylib" ] || missing+=("suite-sparse (GraphBLAS)")
+elif command -v ldconfig >/dev/null 2>&1; then
+  ldconfig -p | grep -qi libgraphblas || missing+=("libgraphblas")
+fi
+if [ ${#missing[@]} -gt 0 ]; then
+  echo "missing prerequisites: ${missing[*]}" >&2
+  echo "see the install commands at the top of $0" >&2
+  exit 1
+fi
 
 if [ ! -d "$HYDRADB_DIR/.git" ]; then
   git clone "$HYDRADB_REPO" "$HYDRADB_DIR"
 fi
+git -C "$HYDRADB_DIR" fetch --quiet origin
+# Prefer the remote branch when HYDRADB_REF names one (a local `main` may be stale).
+target="$HYDRADB_REF"
+git -C "$HYDRADB_DIR" rev-parse --verify --quiet "origin/$HYDRADB_REF^{commit}" >/dev/null && target="origin/$HYDRADB_REF"
+git -C "$HYDRADB_DIR" checkout --quiet --detach "$target"
+echo "HydraDB at $(git -C "$HYDRADB_DIR" rev-parse --short HEAD) ($HYDRADB_REF)"
 
 # Homebrew's rustup does not put `cargo` on PATH; fall back to the pinned toolchain directly.
 if ! command -v cargo >/dev/null 2>&1; then

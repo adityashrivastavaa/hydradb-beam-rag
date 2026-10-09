@@ -78,6 +78,7 @@ Evaluate recall against the gold evidence: `python -m eval.recall` (`--hops 1`, 
 | `CLAUDE_MODEL` | `claude-opus-5-5` | |
 | `HYDRADB_HTTP_PORT` / `HYDRADB_TOKEN` | `8443` / `local-development-token-32-bytes` | must match `start_hydradb.sh` |
 | `HYDRADB_REPO` | public `hydra-db/hydradb` | installer source |
+| `HYDRADB_REF` | `4a8fff0` | HydraDB commit to build; the one this app was tested against |
 
 ## How the defaults were chosen
 
